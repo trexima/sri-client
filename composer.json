@@ -1,0 +1,32 @@
+{
+    "name": "trexima/sri-client",
+    "description": "Client for SRI API",
+    "version": "1.0.0",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "klepoch",
+            "email": "klepoch@trexima.sk"
+        }
+    ],
+    "require": {
+        "php": "^7.2.0||^8.0.0",
+        "ext-json": "*",
+        "symfony/cache-contracts": "^1.1||^2.0",
+        "guzzlehttp/guzzle": "^7.3",
+        "doctrine/dbal": "^3.1"
+    },
+    "require-dev": {
+        "roave/security-advisories": "dev-master",
+        "phpunit/phpunit": "^9.5",
+        "symfony/cache": "^5.2",
+        "symfony/dotenv": "^5.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Trexima\\SriClient\\": "src/",
+            "Trexima\\SriTests\\": "tests/"
+        }
+    }
+}
