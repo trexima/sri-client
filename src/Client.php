@@ -15,6 +15,7 @@ use Psr\Http\Message\ResponseInterface;
 use ReflectionException;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
+use Cocur\Slugify\Slugify;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -202,6 +203,104 @@ class Client
         }
 
         return $nszList;
+    }
+
+    public function getWorkAreasWithNszCount() {
+        $sql = "SELECT count(id_nsz) as pocet, kod_oblasti, nazov
+                FROM
+                    (SELECT DISTINCT p_skisco08_pracovna_oblast.id_prac_oblast AS kod_oblasti,
+                        c_skisco08_oblasti.nazov, nsz.id AS id_nsz
+                    FROM p_skisco08_pracovna_oblast
+                    JOIN nsz_skisco08 ON nsz_skisco08.skisco08=p_skisco08_pracovna_oblast.skisco08
+                    JOIN nsz ON nsz.id=nsz_skisco08.id_nsz
+                    JOIN nsz_ekr ON nsz_ekr.id_nsz = nsz.id
+                    JOIN c_skisco08_oblasti ON c_skisco08_oblasti.kod = p_skisco08_pracovna_oblast.id_prac_oblast
+                    WHERE nsz.zmazane =0 AND nsz.stav = 6 
+                    ) AS t
+                GROUP BY kod_oblasti 
+                ORDER BY nazov";
+        $statement = $this->conn->prepare($sql);
+        $resultSet = $statement->executeQuery();
+        $nszList = [];
+        while (($row = $resultSet->fetchAssociative()) !== false) {
+            $nszList[] = array(
+                'kod' => $row['kod_oblasti'],
+                'nazov' => $row['nazov'],
+                'pocet' => $row['pocet']
+            );
+        }
+
+        return $nszList;
+    }
+
+    public function getWorkAreasNameByIds(array $ids)
+    {
+        $idsInt = [];
+        foreach ($ids as $item) {
+            $idsInt[] = (int)$item;
+        }
+
+        $sql = "SELECT kod AS id, nazov
+                FROM c_skisco08_oblasti
+                WHERE kod IN (:codes)
+                ORDER BY nazov ASC";
+        $statement = $this->conn->prepare($sql);
+        $statement->bindValue(":codes", implode(",", $idsInt));
+
+        $resultSet = $statement->executeQuery();
+        $workAreasList = $resultSet->fetchAllAssociative();
+
+        return $workAreasList;
+    }
+
+    public function getPublishedNSZByWorkArea(int $id)
+    {
+        $sql = "SELECT nsz.id AS id_nsz, nsz.nazov, nsz_ekr.ekr
+                FROM p_skisco08_pracovna_oblast
+                JOIN nsz_skisco08 ON nsz_skisco08.skisco08=p_skisco08_pracovna_oblast.skisco08
+                JOIN nsz ON nsz.id=nsz_skisco08.id_nsz
+                JOIN nsz_ekr ON nsz_ekr.id_nsz = nsz.id
+                WHERE id_prac_oblast= :workarea AND nsz.zmazane = 0 AND nsz.stav = 6
+                GROUP BY nsz.id      
+                ORDER BY nsz_ekr.ekr ASC, nsz.nazov ASC";
+        $statement = $this->conn->prepare($sql);
+        $statement->bindValue(":workarea", $id, "integer");
+
+        $resultSet = $statement->executeQuery();
+
+        $nszList = [];
+        while (($row = $resultSet->fetchAssociative()) !== false) {
+            $nszList[] = array(
+                'id' => $row['id_nsz'],
+                'nazov' => $row['nazov'],
+                'ekr' => $row['ekr']
+            );
+        }
+
+        return $nszList;
+    }
+
+    public function getWorkAreasIdFromSlug(string $slug)
+    {
+        $slugify = new Slugify();
+
+        $sql = "SELECT kod, nazov
+                FROM c_skisco08_oblasti";
+        $statement = $this->conn->prepare($sql);
+
+        $resultSet = $statement->executeQuery();
+        $workAreas = $resultSet->fetchAllAssociative();
+
+        $workAreaId = null;
+        foreach ($workAreas as $workArea)
+        {
+            $workAreaSlug = $slugify->slugify($workArea['nazov']);
+            if ($workAreaSlug == $slug) {
+                $workAreaId = (int)$workArea['kod'];
+            }
+        }
+
+        return $workAreaId;
     }
 
 }
