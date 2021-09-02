@@ -284,12 +284,7 @@ class Client
     {
         $slugify = new Slugify();
 
-        $sql = "SELECT kod, nazov
-                FROM c_skisco08_oblasti";
-        $statement = $this->conn->prepare($sql);
-
-        $resultSet = $statement->executeQuery();
-        $workAreas = $resultSet->fetchAllAssociative();
+        $workAreas = $this->getWorkAreas();
 
         $workAreaId = null;
         foreach ($workAreas as $workArea)
@@ -302,5 +297,155 @@ class Client
 
         return $workAreaId;
     }
+
+    public function getWorkAreas()
+    {
+        $sql = "SELECT kod, nazov
+                FROM c_skisco08_oblasti
+                ORDER BY nazov ASC";
+        $statement = $this->conn->prepare($sql);
+
+        $resultSet = $statement->executeQuery();
+        $workAreas = $resultSet->fetchAllAssociative();
+
+        return $workAreas;
+    }
+
+    public function getGeneralCompetences()
+    {
+        $sql = "SELECT id, nazov, popis
+                FROM c_vseobecne_sposobilosti
+                WHERE (id<=26 OR id>2502) AND id!=22 AND (id>=2300 OR id<2200)
+                ORDER BY poradie, nazov ASC";
+        $statement = $this->conn->prepare($sql);
+
+        $resultSet = $statement->executeQuery();
+        $generalCompetences = $resultSet->fetchAllAssociative();
+
+        return $generalCompetences;
+    }
+
+    public function getEducationDegrees()
+    {
+        $sql = "SELECT id, nazov
+                FROM c_psv
+                ORDER BY poradie ASC";
+        $statement = $this->conn->prepare($sql);
+
+        $resultSet = $statement->executeQuery();
+        $educationDegrees = $resultSet->fetchAllAssociative();
+
+        return $educationDegrees;
+    }
+
+    public function getPublishedNSZByCompetence(string $fulltext, array $gc, array $ed, array $wa)
+    {
+        $sqlCondition="";
+        if (!empty($gc)) {
+            $sqlCondition .= " AND nsz_vseobecne_sposobilosti.vseobecne_sposobilosti IN (".implode(",", $gc).") " ;
+        }
+        if (!empty($ed)) {
+            $sqlCondition .= " AND nsz_psv.psv IN (".implode(",", $ed).") ";
+        }
+        if (!empty($wa)) {
+            $sqlCondition .= " AND p_skisco08_pracovna_oblast.id_prac_oblast IN (".implode(",", $wa).") ";
+        }
+        $fulltextCondition = false;
+        $fulltext = trim($fulltext);
+        if (!empty($fulltext)) {
+            $fulltextCondition = true;
+            $sqlCondition .= " AND (nsz_odborne_vedomosti.odb_vedomost_text LIKE :text OR nsz_odborne_zrucnosti.odb_zrucnost_text LIKE :text) ";
+        }
+
+        $sql = "SELECT 
+                    DISTINCT nsz.id AS id,
+                    nsz.nazov,
+                    nsz_ekr.ekr,
+                    c_skisco08_oblasti.kod AS kod_oblasti,
+                    c_skisco08_oblasti.nazov as nazov_oblasti 
+                FROM nsz
+                JOIN nsz_ekr ON nsz_ekr.id_nsz=nsz.id
+                JOIN nsz_vseobecne_sposobilosti ON nsz_vseobecne_sposobilosti.id_nsz=nsz.id
+                JOIN nsz_psv ON nsz_psv.id_nsz=nsz.id
+                JOIN nsz_skisco08 ON nsz_skisco08.id_nsz=nsz.id
+                JOIN p_skisco08_pracovna_oblast ON p_skisco08_pracovna_oblast.skisco08=nsz_skisco08.skisco08
+                JOIN c_skisco08_oblasti ON c_skisco08_oblasti.kod=p_skisco08_pracovna_oblast.id_prac_oblast
+                ".(
+                    $fulltextCondition ?
+                    "JOIN nsz_odborne_vedomosti ON nsz_odborne_vedomosti.id_nsz=nsz.id
+                    JOIN nsz_odborne_zrucnosti ON nsz_odborne_zrucnosti.id_nsz=nsz.id "
+                    : ""
+                )."
+                WHERE nsz.zmazane=0 AND nsz.stav=6 ".$sqlCondition."
+                ORDER BY c_skisco08_oblasti.nazov ASC, nsz_ekr.ekr ASC, nazov ASC";
+
+        $statement = $this->conn->prepare($sql);
+        if ($fulltextCondition) {
+            $statement->bindValue(":text", "%%".$fulltext."%%");
+        }
+
+        $resultSet = $statement->executeQuery();
+        $nszList = $resultSet->fetchAllAssociative();
+
+        return $nszList;
+    }
+
+    public function getWorkAreaByCompetence(string $fulltext, array $gc, array $ed, array $wa)
+    {
+        $sqlCondition="";
+        if (!empty($gc)) {
+            $sqlCondition .= " AND nsz_vseobecne_sposobilosti.vseobecne_sposobilosti IN (".implode(",", $gc).") " ;
+        }
+        if (!empty($ed)) {
+            $sqlCondition .= " AND nsz_psv.psv IN (".implode(",", $ed).") ";
+        }
+        if (!empty($wa)) {
+            $sqlCondition .= " AND p_skisco08_pracovna_oblast.id_prac_oblast IN (".implode(",", $wa).") ";
+        }
+        $fulltextCondition = false;
+        $fulltext = trim($fulltext);
+        if (!empty($fulltext)) {
+            $fulltextCondition = true;
+            $sqlCondition .= " AND (nsz_odborne_vedomosti.odb_vedomost_text LIKE :text OR nsz_odborne_zrucnosti.odb_zrucnost_text LIKE :text) ";
+        }
+
+        $sql = "SELECT count(id_nsz) as pocet, kod_oblasti, nazov
+                FROM
+                    (
+                        SELECT
+                            DISTINCT nsz.id AS id_nsz,
+                            c_skisco08_oblasti.kod AS kod_oblasti,
+                            c_skisco08_oblasti.nazov 
+                        FROM nsz
+                        JOIN nsz_vseobecne_sposobilosti ON nsz_vseobecne_sposobilosti.id_nsz=nsz.id
+                        JOIN nsz_psv ON nsz_psv.id_nsz=nsz.id
+                        JOIN nsz_skisco08 ON nsz_skisco08.id_nsz=nsz.id
+                        JOIN p_skisco08_pracovna_oblast ON p_skisco08_pracovna_oblast.skisco08=nsz_skisco08.skisco08
+                        JOIN c_skisco08_oblasti ON c_skisco08_oblasti.kod=p_skisco08_pracovna_oblast.id_prac_oblast
+                        ".(
+                            $fulltextCondition ?
+                            "JOIN nsz_odborne_vedomosti ON nsz_odborne_vedomosti.id_nsz=nsz.id
+                            JOIN nsz_odborne_zrucnosti ON nsz_odborne_zrucnosti.id_nsz=nsz.id "
+                            : ""
+                        )."
+                        WHERE nsz.zmazane=0 AND nsz.stav=6 ".$sqlCondition."
+                    ) AS t
+                GROUP BY kod_oblasti 
+                ORDER BY nazov";
+
+        $statement = $this->conn->prepare($sql);
+        if ($fulltextCondition) {
+            $statement->bindValue(":text", "%%".$fulltext."%%");
+        }
+
+        $resultSet = $statement->executeQuery();
+        $nszList = $resultSet->fetchAllAssociative();
+
+        return $nszList;
+    }
+
+
+
+
 
 }
