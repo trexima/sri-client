@@ -498,24 +498,6 @@ class Client
         return $res;
     }
 
-    public function getNszSkIsco(int $id)
-    {
-        $res = [];
-        if ($id > 0) {
-
-            $statement = $this->conn->prepare($sql);
-            $statement->bindValue(":id_nsz", $id, "integer");
-
-            $resultSet = $statement->executeQuery();
-            $res = $resultSet->fetchAllAssociative();
-        }
-
-        return $res;
-    }
-
-
-
-
     public function getNszCharacteristic(int $id)
     {
         $res = [];
