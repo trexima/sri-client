@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Trexima\SriClient;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception;
 use GuzzleHttp\BodySummarizer;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\InvalidArgumentException;
@@ -16,8 +18,6 @@ use ReflectionException;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Cocur\Slugify\Slugify;
-
-require __DIR__ . '/../vendor/autoload.php';
 
 /**
  * Service for making requests on SRI API
@@ -64,31 +64,34 @@ class Client
     /**
      * @var MethodParameterExtractor
      */
-    private $methodParameterExtractor;
+    private MethodParameterExtractor $methodParameterExtractor;
 
     /**
      * @var CacheInterface
      */
-    private $cache;
+    private CacheInterface $cache;
 
     /**
      * Number of seconds for cache invalidation.
      *
      * @var int
      */
-    private $cacheTtl;
+    private int $cacheTtl;
 
     /**
      * @var string
      */
-    private $language;
+    private string $language;
 
     /**
      * @var string
      */
-    private $apiKey;
+    private string $apiKey;
 
-    private $conn;
+    /**
+     * @var Connection
+     */
+    private Connection $conn;
 
     public function __construct(
         string                   $apiUrl,
@@ -113,10 +116,12 @@ class Client
      *
      * @param $resurce
      * @param null $query
+     * @param null $body
+     * @param string $method
      * @return mixed|ResponseInterface
      * @throws GuzzleException
      */
-    public function get($resurce, $query = null, $body = null, $method = 'GET'): ResponseInterface
+    public function get($resurce, $query = null, $body = null, string $method = 'GET'): ResponseInterface
     {
         return $this->client->request($method, $resurce, [
             'headers' => [
@@ -136,16 +141,20 @@ class Client
      * @return mixed
      * @throws InvalidArgumentException if the JSON cannot be decoded.
      */
-    public function jsonDecode(string $json, $assoc = true)
+    public function jsonDecode(string $json, bool $assoc = true)
     {
         return \GuzzleHttp\json_decode($json, $assoc);
     }
 
-    public function getUrl(string $url) {
+    public function getUrl(string $url)
+    {
         $resource = $this->get($url);
         return $this->jsonDecode($resource->getBody()->getContents());
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function getGraphQl($query)
     {
         $resource = $this->get('/api/graphql', null, $query, 'POST');
@@ -155,8 +164,13 @@ class Client
     /**
      * Get NSZ by id
      *
-     * @param string $id
+     * @param string $host
+     * @param string $username
+     * @param string $password
+     * @param string $database
+     * @param int $port
      * @return mixed
+     * @throws Exception
      */
     public function createDbConnection(string $host, string $username, string $password, string $database, int $port)
     {
@@ -193,7 +207,8 @@ class Client
         return $this->jsonDecode($result);
     }
 
-    public function getNszListBySC(int $id) {
+    public function getNszListBySC(int $id): array
+    {
         $scId = self::SCconvertorSRItoSustavaPovolani[$id];
         $sql = "SELECT sr.id_nsz, nsz.nazov, nsz.stav, nsz_ekr.ekr
                     FROM nsz_sr sr
@@ -217,7 +232,8 @@ class Client
         return $nszList;
     }
 
-    public function getWorkAreasWithNszCount() {
+    public function getWorkAreasWithNszCount(): array
+    {
         $sql = "SELECT count(id_nsz) as pocet, kod_oblasti, nazov
                 FROM
                     (SELECT DISTINCT p_skisco08_pracovna_oblast.id_prac_oblast AS kod_oblasti,
@@ -245,7 +261,10 @@ class Client
         return $nszList;
     }
 
-    public function getWorkAreasNameByIds(array $ids)
+    /**
+     * @throws Exception
+     */
+    public function getWorkAreasNameByIds(array $ids): array
     {
         $idsInt = [];
         foreach ($ids as $item) {
@@ -260,12 +279,10 @@ class Client
         $statement->bindValue(":codes", implode(",", $idsInt));
 
         $resultSet = $statement->executeQuery();
-        $workAreasList = $resultSet->fetchAllAssociative();
-
-        return $workAreasList;
+        return $resultSet->fetchAllAssociative();
     }
 
-    public function getPublishedNSZByWorkArea(int $id)
+    public function getPublishedNSZByWorkArea(int $id): array
     {
         $sql = "SELECT nsz.id AS id_nsz, nsz.nazov, nsz_ekr.ekr
                 FROM p_skisco08_pracovna_oblast
@@ -292,15 +309,14 @@ class Client
         return $nszList;
     }
 
-    public function getWorkAreasIdFromSlug(string $slug)
+    public function getWorkAreasIdFromSlug(string $slug): ?int
     {
         $slugify = new Slugify();
 
         $workAreas = $this->getWorkAreas();
 
         $workAreaId = null;
-        foreach ($workAreas as $workArea)
-        {
+        foreach ($workAreas as $workArea) {
             $workAreaSlug = $slugify->slugify($workArea['nazov']);
             if ($workAreaSlug == $slug) {
                 $workAreaId = (int)$workArea['kod'];
@@ -352,15 +368,15 @@ class Client
 
     public function getPublishedNSZByCompetence(string $fulltext, array $gc, array $ed, array $wa)
     {
-        $sqlCondition="";
+        $sqlCondition = "";
         if (!empty($gc)) {
-            $sqlCondition .= " AND nsz_vseobecne_sposobilosti.vseobecne_sposobilosti IN (".implode(",", $gc).") " ;
+            $sqlCondition .= " AND nsz_vseobecne_sposobilosti.vseobecne_sposobilosti IN (" . implode(",", $gc) . ") ";
         }
         if (!empty($ed)) {
-            $sqlCondition .= " AND nsz_psv.psv IN (".implode(",", $ed).") ";
+            $sqlCondition .= " AND nsz_psv.psv IN (" . implode(",", $ed) . ") ";
         }
         if (!empty($wa)) {
-            $sqlCondition .= " AND p_skisco08_pracovna_oblast.id_prac_oblast IN (".implode(",", $wa).") ";
+            $sqlCondition .= " AND p_skisco08_pracovna_oblast.id_prac_oblast IN (" . implode(",", $wa) . ") ";
         }
         $fulltextCondition = false;
         $fulltext = trim($fulltext);
@@ -382,18 +398,18 @@ class Client
                 JOIN nsz_skisco08 ON nsz_skisco08.id_nsz=nsz.id
                 JOIN p_skisco08_pracovna_oblast ON p_skisco08_pracovna_oblast.skisco08=nsz_skisco08.skisco08
                 JOIN c_skisco08_oblasti ON c_skisco08_oblasti.kod=p_skisco08_pracovna_oblast.id_prac_oblast
-                ".(
-                    $fulltextCondition ?
-                    "JOIN nsz_odborne_vedomosti ON nsz_odborne_vedomosti.id_nsz=nsz.id
+                " . (
+            $fulltextCondition ?
+                "JOIN nsz_odborne_vedomosti ON nsz_odborne_vedomosti.id_nsz=nsz.id
                     JOIN nsz_odborne_zrucnosti ON nsz_odborne_zrucnosti.id_nsz=nsz.id "
-                    : ""
-                )."
-                WHERE nsz.zmazane=0 AND nsz.stav=6 ".$sqlCondition."
+                : ""
+            ) . "
+                WHERE nsz.zmazane=0 AND nsz.stav=6 " . $sqlCondition . "
                 ORDER BY c_skisco08_oblasti.nazov ASC, nsz_ekr.ekr ASC, nazov ASC";
 
         $statement = $this->conn->prepare($sql);
         if ($fulltextCondition) {
-            $statement->bindValue(":text", "%%".$fulltext."%%");
+            $statement->bindValue(":text", "%%" . $fulltext . "%%");
         }
 
         $resultSet = $statement->executeQuery();
@@ -404,15 +420,15 @@ class Client
 
     public function getWorkAreaByCompetence(string $fulltext, array $gc, array $ed, array $wa)
     {
-        $sqlCondition="";
+        $sqlCondition = "";
         if (!empty($gc)) {
-            $sqlCondition .= " AND nsz_vseobecne_sposobilosti.vseobecne_sposobilosti IN (".implode(",", $gc).") " ;
+            $sqlCondition .= " AND nsz_vseobecne_sposobilosti.vseobecne_sposobilosti IN (" . implode(",", $gc) . ") ";
         }
         if (!empty($ed)) {
-            $sqlCondition .= " AND nsz_psv.psv IN (".implode(",", $ed).") ";
+            $sqlCondition .= " AND nsz_psv.psv IN (" . implode(",", $ed) . ") ";
         }
         if (!empty($wa)) {
-            $sqlCondition .= " AND p_skisco08_pracovna_oblast.id_prac_oblast IN (".implode(",", $wa).") ";
+            $sqlCondition .= " AND p_skisco08_pracovna_oblast.id_prac_oblast IN (" . implode(",", $wa) . ") ";
         }
         $fulltextCondition = false;
         $fulltext = trim($fulltext);
@@ -434,20 +450,20 @@ class Client
                         JOIN nsz_skisco08 ON nsz_skisco08.id_nsz=nsz.id
                         JOIN p_skisco08_pracovna_oblast ON p_skisco08_pracovna_oblast.skisco08=nsz_skisco08.skisco08
                         JOIN c_skisco08_oblasti ON c_skisco08_oblasti.kod=p_skisco08_pracovna_oblast.id_prac_oblast
-                        ".(
-                            $fulltextCondition ?
-                            "JOIN nsz_odborne_vedomosti ON nsz_odborne_vedomosti.id_nsz=nsz.id
+                        " . (
+            $fulltextCondition ?
+                "JOIN nsz_odborne_vedomosti ON nsz_odborne_vedomosti.id_nsz=nsz.id
                             JOIN nsz_odborne_zrucnosti ON nsz_odborne_zrucnosti.id_nsz=nsz.id "
-                            : ""
-                        )."
-                        WHERE nsz.zmazane=0 AND nsz.stav=6 ".$sqlCondition."
+                : ""
+            ) . "
+                        WHERE nsz.zmazane=0 AND nsz.stav=6 " . $sqlCondition . "
                     ) AS t
                 GROUP BY kod_oblasti 
                 ORDER BY nazov";
 
         $statement = $this->conn->prepare($sql);
         if ($fulltextCondition) {
-            $statement->bindValue(":text", "%%".$fulltext."%%");
+            $statement->bindValue(":text", "%%" . $fulltext . "%%");
         }
 
         $resultSet = $statement->executeQuery();
@@ -560,11 +576,11 @@ class Client
 
             foreach ($results as $row) {
 //                if (file_exists($this->getPath_ilustracne_foto() . $row->ilustracne_foto) )  {
-                    $res[] = [
-                        "id" => $row['id'],
-                        "photo" => $row['ilustracne_foto'],
-                        "description" => $row['popis']
-                    ];
+                $res[] = [
+                    "id" => $row['id'],
+                    "photo" => $row['ilustracne_foto'],
+                    "description" => $row['popis']
+                ];
 //                }
             }
         }
@@ -906,7 +922,7 @@ class Client
         return $res;
     }
 
-    public function getCompetenceGeneralDescription()
+    public function getCompetenceGeneralDescription(): array
     {
         $sql = "SELECT id_vs, uroven, nazov FROM c_vseobecne_sposobilosti_uroven_popis";
 
@@ -916,14 +932,14 @@ class Client
         $result = $resultSet->fetchAllAssociative();
 
         $res = [];
-        foreach($result as $item){
+        foreach ($result as $item) {
             if (!isset($res[$item['id_vs']])) {
                 $res[$item['id_vs']] = [];
             }
 
             if (!isset($res[$item['id_vs']][$item['uroven']])) {
                 $res[$item['id_vs']][$item['uroven']] = $item['nazov'];
-            } else{
+            } else {
                 $res[$item['id_vs']][$item['uroven']] .= ', ' . $item['nazov'];
             }
         }
@@ -931,7 +947,7 @@ class Client
         return $res;
     }
 
-    public function getNszKnowledge(int $id)
+    public function getNszKnowledge(int $id): array
     {
         $res = [];
         if ($id > 0) {
@@ -958,35 +974,35 @@ class Client
 
             $resultSet = $statement->executeQuery();
             $ovN = $resultSet->fetchAllAssociative();
-/*
-            $sql = "SELECT
-                        nsz_odborne_vedomosti_navrh.id,
-                        nsz_odborne_vedomosti_navrh.id_nsz,
-                        nsz_odborne_vedomosti_navrh.id_ov,
-                        c_ktp_ozn_4.nazov,
-                        nsz_odborne_vedomosti_navrh.text,
-                        nsz_odborne_vedomosti_navrh.ekr,
-                        nsz_odborne_vedomosti_navrh.specifikacia,
-                        nsz_odborne_vedomosti_navrh.zamietnute,
-                        nsz_odborne_vedomosti_navrh.dovod_zamietnutia,
-                        (
-                            SELECT COUNT(*)
-                            FROM pripomienky 
-                            WHERE pripomienky.vymazane=0 AND 
-                                pripomienky.id_nsz=nsz_odborne_vedomosti_navrh.id_nsz AND
-                                id_nsz_polozky= 16 AND
-                                id_kompetencie= nsz_odborne_vedomosti_navrh.id
-                        ) AS pocetPripomienok
-                    FROM nsz_odborne_vedomosti_navrh                   
-                    LEFT JOIN c_ktp_ozn_4 ON c_ktp_ozn_4.id_ozn_4=nsz_odborne_vedomosti_navrh.id_ov
-                    WHERE flag=2 AND nsz_odborne_vedomosti_navrh.id_nsz = :id_nsz
-                    ORDER BY nsz_odborne_vedomosti_navrh.id ASC";
-            $statement = $this->conn->prepare($sql);
-            $statement->bindValue(":id_nsz", $id, "integer");
+            /*
+                        $sql = "SELECT
+                                    nsz_odborne_vedomosti_navrh.id,
+                                    nsz_odborne_vedomosti_navrh.id_nsz,
+                                    nsz_odborne_vedomosti_navrh.id_ov,
+                                    c_ktp_ozn_4.nazov,
+                                    nsz_odborne_vedomosti_navrh.text,
+                                    nsz_odborne_vedomosti_navrh.ekr,
+                                    nsz_odborne_vedomosti_navrh.specifikacia,
+                                    nsz_odborne_vedomosti_navrh.zamietnute,
+                                    nsz_odborne_vedomosti_navrh.dovod_zamietnutia,
+                                    (
+                                        SELECT COUNT(*)
+                                        FROM pripomienky
+                                        WHERE pripomienky.vymazane=0 AND
+                                            pripomienky.id_nsz=nsz_odborne_vedomosti_navrh.id_nsz AND
+                                            id_nsz_polozky= 16 AND
+                                            id_kompetencie= nsz_odborne_vedomosti_navrh.id
+                                    ) AS pocetPripomienok
+                                FROM nsz_odborne_vedomosti_navrh
+                                LEFT JOIN c_ktp_ozn_4 ON c_ktp_ozn_4.id_ozn_4=nsz_odborne_vedomosti_navrh.id_ov
+                                WHERE flag=2 AND nsz_odborne_vedomosti_navrh.id_nsz = :id_nsz
+                                ORDER BY nsz_odborne_vedomosti_navrh.id ASC";
+                        $statement = $this->conn->prepare($sql);
+                        $statement->bindValue(":id_nsz", $id, "integer");
 
-            $resultSet = $statement->executeQuery();
-            $ovNZ = $resultSet->fetchAllAssociative();
-*/
+                        $resultSet = $statement->executeQuery();
+                        $ovNZ = $resultSet->fetchAllAssociative();
+            */
             $ovNZ = [];
 
             //odborne vedomosti
@@ -1006,7 +1022,7 @@ class Client
             $result = $resultSet->fetchAllAssociative();
 
             foreach ($result as $row) {
-                $text=$row['odb_vedomost_text'];
+                $text = $row['odb_vedomost_text'];
                 foreach ($ovNZ as $rZ) {
                     if ($rZ['id_ov'] == $row['odb_vedomost'] && $rZ['zamietnute'] == 0) {
                         $text = $rZ['text'];
@@ -1120,35 +1136,35 @@ class Client
 
             $resultSet = $statement->executeQuery();
             $ozN = $resultSet->fetchAllAssociative();
-/*
-            $sql = "SELECT
-                        nsz_odborne_zrucnosti_navrh.id,
-                        nsz_odborne_zrucnosti_navrh.id_nsz,
-                        nsz_odborne_zrucnosti_navrh.id_oz,
-                        c_ktp_od_6.nazov,
-                        nsz_odborne_zrucnosti_navrh.text,
-                        nsz_odborne_zrucnosti_navrh.ekr,
-                        nsz_odborne_zrucnosti_navrh.specifikacia,
-                        nsz_odborne_zrucnosti_navrh.zamietnute,
-                        nsz_odborne_zrucnosti_navrh.dovod_zamietnutia,
-                        (
-                            SELECT COUNT(*)
-                            FROM pripomienky
-                            WHERE pripomienky.vymazane=0 AND
-                                pripomienky.id_nsz=nsz_odborne_zrucnosti_navrh.id_nsz AND
-                                id_nsz_polozky= 17 AND
-                                id_kompetencie= nsz_odborne_zrucnosti_navrh.id
-                        ) AS pocetPripomienok
-                    FROM nsz_odborne_zrucnosti_navrh          
-                    LEFT JOIN c_ktp_od_6 ON c_ktp_od_6.id_od_6=nsz_odborne_zrucnosti_navrh.id_oz
-                    WHERE flag=2 AND nsz_odborne_zrucnosti_navrh.id_nsz = :id_nsz
-                    ORDER BY nsz_odborne_zrucnosti_navrh.id ASC";
-            $statement = $this->conn->prepare($sql);
-            $statement->bindValue(":id_nsz", $id, "integer");
+            /*
+                        $sql = "SELECT
+                                    nsz_odborne_zrucnosti_navrh.id,
+                                    nsz_odborne_zrucnosti_navrh.id_nsz,
+                                    nsz_odborne_zrucnosti_navrh.id_oz,
+                                    c_ktp_od_6.nazov,
+                                    nsz_odborne_zrucnosti_navrh.text,
+                                    nsz_odborne_zrucnosti_navrh.ekr,
+                                    nsz_odborne_zrucnosti_navrh.specifikacia,
+                                    nsz_odborne_zrucnosti_navrh.zamietnute,
+                                    nsz_odborne_zrucnosti_navrh.dovod_zamietnutia,
+                                    (
+                                        SELECT COUNT(*)
+                                        FROM pripomienky
+                                        WHERE pripomienky.vymazane=0 AND
+                                            pripomienky.id_nsz=nsz_odborne_zrucnosti_navrh.id_nsz AND
+                                            id_nsz_polozky= 17 AND
+                                            id_kompetencie= nsz_odborne_zrucnosti_navrh.id
+                                    ) AS pocetPripomienok
+                                FROM nsz_odborne_zrucnosti_navrh
+                                LEFT JOIN c_ktp_od_6 ON c_ktp_od_6.id_od_6=nsz_odborne_zrucnosti_navrh.id_oz
+                                WHERE flag=2 AND nsz_odborne_zrucnosti_navrh.id_nsz = :id_nsz
+                                ORDER BY nsz_odborne_zrucnosti_navrh.id ASC";
+                        $statement = $this->conn->prepare($sql);
+                        $statement->bindValue(":id_nsz", $id, "integer");
 
-            $resultSet = $statement->executeQuery();
-            $ozNZ = $resultSet->fetchAllAssociative();
-*/
+                        $resultSet = $statement->executeQuery();
+                        $ozNZ = $resultSet->fetchAllAssociative();
+            */
             $ozNZ = [];
 
             //odborne zrucnosti
@@ -1412,7 +1428,7 @@ class Client
                 }
             }
         }", $nszCode);
-        $graphQLquery = '{"query": "query '.str_replace(array("\n", "\r"), '', $string).'"}';
+        $graphQLquery = '{"query": "query ' . str_replace(array("\n", "\r"), '', $string) . '"}';
 
         return $this->getGraphQl($graphQLquery);
     }
@@ -1421,7 +1437,7 @@ class Client
     {
         $res = [];
         if ($search) {
-            $sql='SELECT nsz.id,nsz.nazov
+            $sql = 'SELECT nsz.id,nsz.nazov
                 FROM nsz
                 LEFT JOIN nsz_alt_nazov ON nsz_alt_nazov.id_nsz=nsz.id
                 LEFT JOIN nsz_skisco08 ON nsz_skisco08.id_nsz=nsz.id
@@ -1445,12 +1461,4 @@ class Client
 
         return $res;
     }
-
-
-
-
-
-
-
-
 }

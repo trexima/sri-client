@@ -2,6 +2,7 @@
 
 namespace Trexima\SriClient;
 
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 
@@ -10,7 +11,7 @@ class MethodParameterExtractor
     /**
      * @var CacheInterface
      */
-    private $cache;
+    private CacheInterface $cache;
 
     public function __construct(CacheInterface $cache)
     {
@@ -23,10 +24,9 @@ class MethodParameterExtractor
      * @param string $className
      * @param string $methodName
      * @return array
-     * @throws \Psr\Cache\InvalidArgumentException
-     * @throws \ReflectionException
+     * @throws InvalidArgumentException
      */
-    public function extract(string $className, string $methodName)
+    public function extract(string $className, string $methodName): array
     {
         return $this->cache->get(sprintf('method-parameter-extractor-%s', crc32($className . $methodName)), function (ItemInterface $item) use ($className, $methodName) {
             $reflection = new \ReflectionMethod($className, $methodName);
