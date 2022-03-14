@@ -741,9 +741,9 @@ class Client
             $resultSet = $statement->executeQuery();
             $result = $resultSet->fetchAllAssociative();
 
-            $res = $result[0];
-
             if ($result) {
+                $res = $result[0];
+
                 $sql = "SELECT
                             nsz_reg_povolanie_pravny_predpis.id,
                             nsz_reg_povolanie_pravny_predpis.id_pravny_predpis,
