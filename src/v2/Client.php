@@ -124,12 +124,10 @@ class Client
      * @param string $title
      * @param int $type
      * @param int $group
-     * @param string $ico
-     * @param int $page
      * @return mixed
      * @throws \Psr\Cache\InvalidArgumentException
      */
-    public function searchOrganization(string $title = null, int $type = null, int $group = null, string $ico = null, int $page = 1)
+    public function searchOrganization(int $type, int $group, string $title = null)
     {
         $parameterNames = array_slice($this->methodParameterExtractor->extract(__CLASS__, __FUNCTION__), 0, func_num_args());
         $args = array_filter(array_combine($parameterNames, func_get_args()));
@@ -149,6 +147,30 @@ class Client
         });
 
         return $this->jsonDecode($result);
+    }
+
+    /**
+     * Get organization by CRN.
+     *
+     * @param string $ico
+     * @return mixed
+     * @throws \Psr\Cache\InvalidArgumentException
+     */
+    public function getOrganizationByCrn(string $crn)
+    {
+        if (empty($crn)) return null;
+        $args = ['ico' => $crn];
+
+        $cacheKey = 'search-organization-' . crc32(json_encode($args));
+        $result = $this->cache->get($cacheKey, function (ItemInterface $item) use ($args) {
+            $item->expiresAfter($this->cacheTtl);
+            $resource = $this->makeRequest('api/strategy_organizations', $args);
+
+            return (string)$resource->getBody();
+        });
+
+        $organizations = $this->jsonDecode($result);
+        return $organizations[0] ?? null;
     }
 
     /**
