@@ -23,5 +23,11 @@ final class GetStrategyOrganizationCategoriesTest extends TestCase
     {
         $organizationCategories = $this->sriClient->getStrategyOrganizationCategories();
         $this->assertGreaterThan(0, count($organizationCategories));
+
+        $organizationCategories = $this->sriClient->getStrategyOrganizationCategories(0);
+        $this->assertGreaterThan(0, count($organizationCategories));
+
+        $organizationCategories = $this->sriClient->getStrategyOrganizationCategories(1,1);
+        $this->assertGreaterThan(0, count($organizationCategories));
     }
 }

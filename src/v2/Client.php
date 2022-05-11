@@ -176,18 +176,14 @@ class Client
      *
      * @param int $level
      * @param int $parent
-     * @param int $page
      * @return mixed
      * @throws \Psr\Cache\InvalidArgumentException
      */
-    public function getStrategyOrganizationCategories(int $level = null, int $parent = null, int $page = 1)
+    public function getStrategyOrganizationCategories(int $level = null, int $parent = null)
     {
-        $parameterNames = array_slice($this->methodParameterExtractor->extract(__CLASS__, __FUNCTION__), 0, func_num_args());
-        $args = array_filter(array_combine($parameterNames, func_get_args()));
-
-        if (!empty($args['parent'])) $args['parent.id'] = $parent;
-
-        unset($args['parent']);
+        $args = [];
+        if (isset($parent)) $args['parent.id'] = $parent;
+        if (isset($level)) $args['level'] = $level;
 
         $cacheKey = 'search-organization-' . crc32(json_encode($args));
         $result = $this->cache->get($cacheKey, function (ItemInterface $item) use ($args) {
