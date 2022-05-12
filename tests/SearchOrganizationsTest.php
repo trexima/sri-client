@@ -21,7 +21,7 @@ final class SearchOrganizationsTest extends TestCase
 
     public function testSearchOrganizations(): void
     {
-        $organizations = $this->sriClient->searchOrganization();
+        $organizations = $this->sriClient->searchOrganization($_ENV['TEST_ORGANIZATION_TYPE'], $_ENV['TEST_ORGANIZATION_GROUP']);
         $this->assertGreaterThan(0, count($organizations));
     }
 }

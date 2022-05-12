@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Trexima\SriClient\v2\Client;
 
-final class GetStrategyOrganizationCategoriesTest extends TestCase
+final class GetOrganizationByCrnTest extends TestCase
 {
     private $sriClient;
     private $parameterExtractor;
@@ -19,15 +19,11 @@ final class GetStrategyOrganizationCategoriesTest extends TestCase
         $this->sriClient = new Client($_ENV['SRI_URL'], $_ENV['SRI_API_KEY'], $this->parameterExtractor, $cache);
     }
 
-    public function testGetStrategyOrganizationCategories(): void
+    public function testGetOrganizationByCrn(): void
     {
-        $organizationCategories = $this->sriClient->getStrategyOrganizationCategories();
-        $this->assertGreaterThan(0, count($organizationCategories));
-
-        $organizationCategories = $this->sriClient->getStrategyOrganizationCategories(0);
-        $this->assertGreaterThan(0, count($organizationCategories));
-
-        $organizationCategories = $this->sriClient->getStrategyOrganizationCategories(1,1);
-        $this->assertGreaterThan(0, count($organizationCategories));
+        $organization = $this->sriClient->getOrganizationByCrn($_ENV['TEST_ORGANIZATION_CRN']);
+        $this->assertIsArray($organization);
+        $organization = $this->sriClient->getOrganizationByCrn('XXX');
+        $this->assertNull($organization);
     }
 }
