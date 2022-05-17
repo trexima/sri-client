@@ -286,4 +286,43 @@ class Client
 
         return $this->jsonDecode($result);
     }
+
+    /**
+     * Get activities timeline.
+     *
+     * @return mixed
+     * @throws \Psr\Cache\InvalidArgumentException
+     */
+    public function getActivitiesTimeline()
+    {
+        $cacheKey = 'get-activities-timeline';
+        $result = $this->cache->get($cacheKey, function (ItemInterface $item) {
+            $item->expiresAfter($this->cacheTtl);
+            $resource = $this->makeRequest('api/activities_timeline/');
+
+            return (string)$resource->getBody();
+        });
+
+        return $this->jsonDecode($result);
+    }
+
+    /**
+     * Get activity detail.
+     *
+     * @param string $id
+     * @return mixed
+     * @throws \Psr\Cache\InvalidArgumentException
+     */
+    public function getActivityDetail(string $id)
+    {
+        $cacheKey = 'get-activities-timeline-' . crc32(strval($id));
+        $result = $this->cache->get($cacheKey, function (ItemInterface $item) use ($id) {
+            $item->expiresAfter($this->cacheTtl);
+            $resource = $this->makeRequest('api/activities_timeline/' . $id);
+
+            return (string)$resource->getBody();
+        });
+
+        return $this->jsonDecode($result);
+    }
 }
