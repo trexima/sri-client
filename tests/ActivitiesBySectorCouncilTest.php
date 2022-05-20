@@ -6,7 +6,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Trexima\SriClient\v2\Client;
 
-final class OrganizationActivitiesBySectorCouncilTest extends TestCase
+final class ActivitiesBySectorCouncilTest extends TestCase
 {
     private $sriClient;
     private $parameterExtractor;
@@ -19,9 +19,14 @@ final class OrganizationActivitiesBySectorCouncilTest extends TestCase
         $this->sriClient = new Client($_ENV['SRI_URL'], $_ENV['SRI_API_KEY'], $this->parameterExtractor, $cache);
     }
 
-    public function testOrganizationActivitiesBySectorCouncil(): void
+    public function testActivitiesBySectorCouncil(): void
     {
-        $organizationActivities = $this->sriClient->getOrganizationActivitiesBySectorCouncils($_ENV['TEST_ORGANIZATION_ID']);
+        // test without organization filter
+        $organizationActivities = $this->sriClient->getActivitiesBySectorCouncils();
+        $this->assertGreaterThanOrEqual(0, count($organizationActivities));
+
+        // test with organization filter
+        $organizationActivities = $this->sriClient->getActivitiesBySectorCouncils($_ENV['TEST_ORGANIZATION_ID']);
         $this->assertGreaterThanOrEqual(0, count($organizationActivities));
     }
 }

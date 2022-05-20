@@ -219,21 +219,21 @@ class Client
     }
 
     /**
-     * Get organization activities grupped by focuses.
+     * Get activities grupped by focuses.
      *
      * @param int $organization
      * @return mixed
      * @throws \Psr\Cache\InvalidArgumentException
      */
-    public function getOrganizationActivitiesByFocus(int $organization)
+    public function getActivitiesByFocus(int $organization = null)
     {
         $parameterNames = array_slice($this->methodParameterExtractor->extract(__CLASS__, __FUNCTION__), 0, func_num_args());
         $args = array_filter(array_combine($parameterNames, func_get_args()));
 
-        $cacheKey = 'organization-activities-by-focus-' . crc32(json_encode($args));
+        $cacheKey = 'activities-by-focus-' . crc32(json_encode($args));
         $result = $this->cache->get($cacheKey, function (ItemInterface $item) use ($args) {
             $item->expiresAfter($this->cacheTtl);
-            $resource = $this->makeRequest('api/organization_activities_by_focuses', $args);
+            $resource = $this->makeRequest('api/activities_by_focuses', $args);
 
             return (string)$resource->getBody();
         });
@@ -242,21 +242,21 @@ class Client
     }
 
     /**
-     * Get organization activities grupped by years.
+     * Get activities grupped by years.
      *
      * @param int $organization
      * @return mixed
      * @throws \Psr\Cache\InvalidArgumentException
      */
-    public function getOrganizationActivitiesByYear(int $organization)
+    public function getActivitiesByYear(int $organization = null)
     {
         $parameterNames = array_slice($this->methodParameterExtractor->extract(__CLASS__, __FUNCTION__), 0, func_num_args());
         $args = array_filter(array_combine($parameterNames, func_get_args()));
 
-        $cacheKey = 'organization-activities-by-year-' . crc32(json_encode($args));
+        $cacheKey = 'activities-by-year-' . crc32(json_encode($args));
         $result = $this->cache->get($cacheKey, function (ItemInterface $item) use ($args) {
             $item->expiresAfter($this->cacheTtl);
-            $resource = $this->makeRequest('api/organization_activities_by_years', $args);
+            $resource = $this->makeRequest('api/activities_by_years', $args);
 
             return (string)$resource->getBody();
         });
@@ -265,21 +265,21 @@ class Client
     }
 
     /**
-     * Get organization activities grupped by sector councils.
+     * Get activities grupped by sector councils.
      *
      * @param int $organization
      * @return mixed
      * @throws \Psr\Cache\InvalidArgumentException
      */
-    public function getOrganizationActivitiesBySectorCouncils(int $organization)
+    public function getActivitiesBySectorCouncils(int $organization = null)
     {
         $parameterNames = array_slice($this->methodParameterExtractor->extract(__CLASS__, __FUNCTION__), 0, func_num_args());
         $args = array_filter(array_combine($parameterNames, func_get_args()));
 
-        $cacheKey = 'organization-activities-by-sector-council-' . crc32(json_encode($args));
+        $cacheKey = 'activities-by-sector-council-' . crc32(json_encode($args));
         $result = $this->cache->get($cacheKey, function (ItemInterface $item) use ($args) {
             $item->expiresAfter($this->cacheTtl);
-            $resource = $this->makeRequest('api/organization_activities_by_sector_councils', $args);
+            $resource = $this->makeRequest('api/activities_by_sector_councils', $args);
 
             return (string)$resource->getBody();
         });
