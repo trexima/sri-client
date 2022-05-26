@@ -1424,10 +1424,72 @@ class Client
                                 }
                             }
                         }
+                        innovations(status_list: [1,2]) {
+                            edges {
+                                node {
+                                    innovation {
+                                        _id
+                                        title
+                                        description
+                                        titleImage
+                                        category {
+                                            _id
+                                        }
+                                        nszDescriptionInnovation(nsz_code: %d) {
+                                            totalCount
+                                        }
+                                        nszKnowledgeInnovation(nsz_code: %d) {
+                                            edges {
+                                                node {
+                                                    nszKnowledge {
+                                                        knowledge {
+                                                            title
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        nszSkillInnovation(nsz_code: %d) {
+                                            edges {
+                                                node {
+                                                    nszSkill {
+                                                        skill {
+                                                            title
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        nszExpertActivityKnowledgeInnovation(nsz_code: %d) {
+                                            edges {
+                                                node {
+                                                    nszExpertActivityKnowledge {
+                                                        knowledge {
+                                                            title
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        nszExpertActivitySkillInnovation(nsz_code: %d) {
+                                            edges {
+                                                node {
+                                                    nszExpertActivitySkill {
+                                                        skill {
+                                                            title
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-        }", $nszCode);
+        }", $nszCode, $nszCode, $nszCode, $nszCode, $nszCode, $nszCode);
         $graphQLquery = '{"query": "query ' . str_replace(array("\n", "\r"), '', $string) . '"}';
 
         return $this->getGraphQl($graphQLquery);
