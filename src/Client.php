@@ -1424,59 +1424,70 @@ class Client
                                 }
                             }
                         }
-                        innovations(status_list: [1,2]) {
-                            edges {
-                                node {
-                                    innovation {
-                                        _id
-                                        title
-                                        description
-                                        titleImage
-                                        category {
+                    }
+                }
+            }
+        }", $nszCode);
+        $graphQLquery = '{"query": "query ' . str_replace(array("\n", "\r"), '', $string) . '"}';
+
+        $result = $this->getGraphQl($graphQLquery);
+
+        if ($nszsData = &$result['data']['nszs']['edges']) {
+            $nszData = &$nszsData[0]['node'];
+            $nszId = $nszData['_id'];
+
+            $nszData['innovations']['edges'] = [];
+
+            $string = sprintf("{
+                base:nszs (code: %d) {
+                    edges {
+                        node {
+                            innovations(status_list: [1,2]) {
+                                edges {
+                                    node {
+                                        innovation {
                                             _id
+                                            title
+                                            description
+                                            titleImage
+                                            category {
+                                                _id
+                                            }
+                                            nszDescriptionInnovation(nsz_id: %d) {
+                                                totalCount
+                                            }
                                         }
-                                        nszDescriptionInnovation(nsz_code: %d) {
-                                            totalCount
-                                        }
-                                        nszKnowledgeInnovation(nsz_code: %d) {
-                                            edges {
-                                                node {
-                                                    nszKnowledge {
-                                                        knowledge {
-                                                            title
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                competencyModel:nszs (code: %d) {
+                    edges {
+                        node {
+                            innovations(status_list: [1,2]) {
+                                edges {
+                                    node {
+                                        innovation {
+                                            nszKnowledgeInnovation(nsz_id: %d) {
+                                                edges {
+                                                    node {
+                                                        nszKnowledge {
+                                                            knowledge {
+                                                                title
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
-                                        }
-                                        nszSkillInnovation(nsz_code: %d) {
-                                            edges {
-                                                node {
-                                                    nszSkill {
-                                                        skill {
-                                                            title
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        nszExpertActivityKnowledgeInnovation(nsz_code: %d) {
-                                            edges {
-                                                node {
-                                                    nszExpertActivityKnowledge {
-                                                        knowledge {
-                                                            title
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        nszExpertActivitySkillInnovation(nsz_code: %d) {
-                                            edges {
-                                                node {
-                                                    nszExpertActivitySkill {
-                                                        skill {
-                                                            title
+                                            nszSkillInnovation(nsz_id: %d) {
+                                                edges {
+                                                    node {
+                                                        nszSkill {
+                                                            skill {
+                                                                title
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1488,11 +1499,65 @@ class Client
                         }
                     }
                 }
-            }
-        }", $nszCode, $nszCode, $nszCode, $nszCode, $nszCode, $nszCode);
-        $graphQLquery = '{"query": "query ' . str_replace(array("\n", "\r"), '', $string) . '"}';
+                expertActivities:nszs (code: %d) {
+                    edges {
+                        node {
+                            innovations(status_list: [1,2]) {
+                                edges {
+                                    node {
+                                        innovation {
+                                            nszExpertActivityKnowledgeInnovation(nsz_id: %d) {
+                                                edges {
+                                                    node {
+                                                        nszExpertActivityKnowledge {
+                                                            knowledge {
+                                                                title
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            nszExpertActivitySkillInnovation(nsz_id: %d) {
+                                                edges {
+                                                    node {
+                                                        nszExpertActivitySkill {
+                                                            skill {
+                                                                title
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }", $nszCode, $nszId, $nszCode, $nszId, $nszId, $nszCode, $nszId, $nszId);
+            $graphQLquery = '{"query": "query ' . str_replace(array("\n", "\r"), '', $string) . '"}';
 
-        return $this->getGraphQl($graphQLquery);
+            $nszInnovations = $this->getGraphQl($graphQLquery);
+
+            if ($baseData = $nszInnovations['data']['base']['edges'][0]['node']['innovations']['edges']) {
+                $competencyModelData = $nszInnovations['data']['competencyModel']['edges'][0]['node']['innovations']['edges'];
+                $expertActivitiesData = $nszInnovations['data']['expertActivities']['edges'][0]['node']['innovations']['edges'];
+
+                foreach ($baseData as $index => &$item) {
+                    $innovation = &$item['node']['innovation'];
+
+                    $innovation += $competencyModelData[$index]['node']['innovation'];
+                    $innovation += $expertActivitiesData[$index]['node']['innovation'];
+
+                    unset($item, $innovation);
+                }
+
+                $nszData['innovations']['edges'] = $baseData;
+            }
+        }
+
+        return $result;
     }
 
     public function searchNszByFulltext(string $search)
