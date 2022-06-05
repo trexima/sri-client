@@ -1357,7 +1357,8 @@ class Client
                                     certificate {
                                         id,
                                         title,
-                                        category
+                                        category,
+                                        kind
                                     }
                                 }
                             }
