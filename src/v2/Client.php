@@ -11,6 +11,7 @@ use Psr\Http\Message\ResponseInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use GuzzleHttp\Client as GuzzleHttpClient;
+use Trexima\SriClient\Exception\GraphQLException;
 use Trexima\SriClient\MethodParameterExtractor;
 
 /**
@@ -99,12 +100,17 @@ class Client
      * Perform GraphQL request on API.
      * 
      * @param string $query
-     * @throws GuzzleException
+     * @throws GuzzleException|GraphQLException
      */
     public function getGraphQL(string $query)
     {
         $resource = $this->makeRequest('/api/graphql', null, $query, 'POST');
-        return $this->jsonDecode($resource->getBody()->getContents());
+        $response = $resource->getBody()->getContents();
+        $responseArray = $this->jsonDecode($response);
+        if (!empty($responseArray['errors'])) {
+            throw new GraphQLException($responseArray['data'] ?? [], $responseArray['errors']);
+        }
+        return $responseArray;
     }
 
     /**
