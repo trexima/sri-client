@@ -2,6 +2,7 @@
 
 namespace Trexima\Tests;
 
+use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Trexima\SriClient\v2\Client;
@@ -23,5 +24,12 @@ final class GetActivityDetailTest extends TestCase
     {
         $activity = $this->sriClient->getActivityDetail($_ENV['TEST_ACTIVITY_ID']);
         $this->assertGreaterThan(0, count($activity));
+
+        // test error not found
+        try {
+            $activity = $this->sriClient->getActivityDetail('XXXX');
+        } catch (GuzzleException $e) {
+            $this->assertEquals(404, $e->getCode());
+        }
     }
 }
