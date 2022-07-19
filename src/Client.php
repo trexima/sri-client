@@ -495,6 +495,29 @@ class Client
         return $res;
     }
 
+    public function getNszBasicByCode(int $code)
+    {
+        $res = [];
+        if ($code > 0) {
+            $sql = "SELECT nsz.id, nsz.kod, nsz.nazov, nsz.stav, c_stav_nsz.nazov AS stav_text, nsz.zmazane
+                    FROM nsz
+                    LEFT JOIN c_stav_nsz ON c_stav_nsz.id=nsz.stav
+                    WHERE nsz.kod= :code
+                    LIMIT 1";
+
+            $statement = $this->conn->prepare($sql);
+            $statement->bindValue(":code", $code, "integer");
+
+            $resultSet = $statement->executeQuery();
+            $dbRes = $resultSet->fetchAllAssociative();
+            if ($dbRes) {
+                $res = $dbRes[0];
+            }
+        }
+
+        return $res;
+    }
+
     public function getNszSkISCO08(int $id)
     {
         $res = [];
