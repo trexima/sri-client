@@ -1318,140 +1318,176 @@ class Client
         return $res;
     }
 
-    public function getNSZfromSRIGraphQL(int $nszCode)
+    public function getNSZfromSRIGraphQL(int $nszCode, array $fieldsToExtract = [])
     {
-        $string = sprintf("{
-            nszs (code: %d) {
+        $fields = [
+            'id',
+            '_id',
+            'sectorCouncil',
+            'code',
+            'revision',
+            'title',
+            'description',
+            'isced',
+            'skkr',
+            'kovLevel',
+            'practiceMonths',
+            'practiceRecommendation',
+            'lawsDescription',
+            'practicesDescription',
+            'practiceLengthDescription',
+            'kovLevelDescription',
+            'titleImage',
+            'skkrMin',
+            'iscedMin',
+            'kovLevelMin',
+            'skkrMax',
+            'iscedMax',
+            'kovLevelMax',
+            'kovLevelRangeDescription',
+            'escos',
+            'selfEmployment',
+            'alternativeTitles',
+            'certificates',
+            'laws',
+            'workEquipments',
+            'workProfiles',
+            'practices',
+            'selfEmploymentPacks',
+        ];
+
+        $structures = [
+            'sectorCouncil' => '{
+                id,
+                code,
+                title,
+                guarantor
+            }',
+            'escos' => '(first: 1, last: 100) {
+              edges {
+                node {
+                  escoId
+                }
+              }
+            }',
+            'alternativeTitles' => '{
+                edges {
+                    node {
+                        id,
+                        title,
+                        language
+                    }
+                }
+            }',
+            'certificates' => '{
                 edges {
                     node {
                         id,
                         _id,
-                        sectorCouncil {
+                        required,
+                        description,
+                        certificate {
                             id,
+                            title,
+                            category,
+                            kind
+                        }
+                    }
+                }
+            }',
+            'laws' => '{
+                edges {
+                    node {
+                        law {
+                            id,
+                            title
+                        }
+                    }
+                }
+            }',
+            'workEquipments' => '{
+                edges {
+                    node {
+                        workEquipment {
                             code,
                             title,
-                            guarantor
-                        },
-                        code,
-                        revision,
-                        title,
-                        description,
-                        isced,
-                        skkr,
-                        kovLevel,
-                        practiceMonths,
-                        practiceRecommendation,
-                        lawsDescription,
-                        practicesDescription,
-                        practiceLengthDescription,
-                        kovLevelDescription,
-                        titleImage,
-                        skkrMin,
-                        iscedMin,
-                        kovLevelMin,
-                        skkrMax,
-                        iscedMax,
-                        kovLevelMax,
-                        kovLevelRangeDescription,
-                        escos(first: 1, last: 100) {
-                          edges {
-                            node {
-                              escoId
-                            }
-                          }
-                        },
-                        selfEmployment,
-                        alternativeTitles {
-                            edges {
-                                node {
-                                    id,
-                                    title,
-                                    language
-                                }
-                            }
-                        },
-                        certificates {
-                            edges {
-                                node {
-                                    id,
-                                    _id,
-                                    required,
-                                    description,
-                                    certificate {
-                                        id,
-                                        title,
-                                        category,
-                                        kind
-                                    }
-                                }
-                            }
-                        },
-                        laws {
-                            edges {
-                                node {
-                                    law {
-                                        id,
-                                        title
-                                    }
-                                }
-                            }
-                        },
-                        workEquipments {
-                            edges {
-                                node {
-                                    workEquipment {
-                                        code,
-                                        title,
-                                        level,
-                                        parent {
-                                            code,
-                                            title,
-                                            level
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        workProfiles {
-                            edges {
-                                node {
-                                    workProfile {
-                                        id,
-                                        title,
-                                        description,
-                                        category
-                                    }
-                                }
-                            }
-                        },
-                        practices {
-                            edges {
-                                node {
-                                    id,
-                                    _id,
-                                    required,
-                                    law {
-                                        title
-                                    }
-                                }
-                            }
-                        },
-                        selfEmploymentPacks {
-                            edges {
-                                node {
-                                    id,
-                                    selfEmploymentPack {
-                                        id,
-                                        _id,
-                                        title
-                                    }
-                                }
+                            level,
+                            parent {
+                                code,
+                                title,
+                                level
                             }
                         }
                     }
                 }
+            }',
+            'workProfiles' => '{
+                edges {
+                    node {
+                        workProfile {
+                            id,
+                            title,
+                            description,
+                            category
+                        }
+                    }
+                }
+            }',
+            'practices' => '{
+                edges {
+                    node {
+                        id,
+                        _id,
+                        required,
+                        law {
+                            title
+                        }
+                    }
+                }
+            }',
+            'selfEmploymentPacks' => '{
+                edges {
+                    node {
+                        id,
+                        selfEmploymentPack {
+                            id,
+                            _id,
+                            title
+                        }
+                    }
+                }
+            }',
+        ];
+
+        if ($fieldsToExtract) {
+            $flippedFields = array_flip($fields);
+
+            foreach ($fieldsToExtract as $index => $field) {
+                if (!isset($flippedFields[$field])) {
+                    unset($fieldsToExtract[$index]);
+                } elseif ($structure = $structures[$field] ?? null) {
+                    $fieldsToExtract[$index] .= $structure;
+                }
             }
-        }", $nszCode);
+        } else {
+            foreach ($fields as $index => $field) {
+                if ($structure = $structures[$field] ?? null) {
+                    $fields[$index] .= $structure;
+                }
+            }
+
+            $fieldsToExtract = $fields;
+        }
+
+        $string = sprintf("{
+            nszs (code: %d) {
+                edges {
+                    node {
+                        %s
+                    }
+                }
+            }
+        }", $nszCode, implode(',', $fieldsToExtract));
 
         return $this->getGraphQl('{"query": "query ' . str_replace(array("\n", "\r"), '', $string) . '"}');
     }
