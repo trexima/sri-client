@@ -1318,7 +1318,7 @@ class Client
         return $res;
     }
 
-    public function getNSZfromSRIGraphQL(int $nszCode, array $fieldsToExtract = [])
+    public function getNSZfromSRIGraphQL(int $nszId, array $fieldsToExtract = [])
     {
         $fields = [
             'id',
@@ -1479,17 +1479,13 @@ class Client
             $fieldsToExtract = $fields;
         }
 
-        $string = sprintf("{
-            nszs (code: %d) {
-                edges {
-                    node {
-                        %s
-                    }
-                }
+        $string = sprintf('{
+            nsz (id: "api/nszs/%d") {
+                %s
             }
-        }", $nszCode, implode(',', $fieldsToExtract));
+        }', $nszId, implode(',', $fieldsToExtract));
 
-        return $this->getGraphQl('{"query": "query ' . str_replace(array("\n", "\r"), '', $string) . '"}');
+        return $this->getGraphQl('{"query": "query ' . addslashes(str_replace(["\n", "\r"], '', $string)) . '"}');
     }
 
     /**
