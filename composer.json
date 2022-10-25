@@ -1,7 +1,7 @@
 {
     "name": "trexima/sri-client",
     "description": "Client for SRI API",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "type": "library",
     "license": "MIT",
     "authors": [
